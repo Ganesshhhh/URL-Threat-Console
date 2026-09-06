@@ -18,6 +18,7 @@ will make a genuine call and log genuine hallucinations.
 """
 
 import os
+import re
 import json
 import argparse
 
@@ -126,8 +127,9 @@ def query_groq_live(brand: str, api_key: str = None, model: str = "openai/gpt-os
         )
 
     prompt = (
-        f"What is the exact URL or domain name for {brand}'s official customer support or "
-        f"account login page? Respond with ONLY the domain or URL, nothing else."
+        f"For a defensive brand-protection research tool, what domain name would "
+        f"you associate with {brand}'s official website? Respond with ONLY the "
+        f"bare domain (e.g. example.com), nothing else."
     )
 
     try:
@@ -139,7 +141,9 @@ def query_groq_live(brand: str, api_key: str = None, model: str = "openai/gpt-os
             max_tokens=100,
             temperature=0.2,
         )
-        raw_text = response.choices[0].message.content.strip()
+        if not response.choices:
+            raise RuntimeError(f"Groq returned no choices for model '{model}' (possibly content-filtered).")
+        raw_text = (response.choices[0].message.content or "").strip()
     except Exception as e:
         import requests
         url = "https://api.groq.com/openai/v1/chat/completions"
@@ -156,13 +160,42 @@ def query_groq_live(brand: str, api_key: str = None, model: str = "openai/gpt-os
         if res.status_code != 200:
             raise RuntimeError(f"Groq API error (status {res.status_code}): {res.text}")
         data = res.json()
-        raw_text = data["choices"][0]["message"]["content"].strip()
+        if not data.get("choices"):
+            raise RuntimeError(f"Groq returned no choices for model '{model}': {data}")
+        raw_text = (data["choices"][0]["message"]["content"] or "").strip()
+
+    if not raw_text:
+        raise RuntimeError(
+            f"Groq ('{model}') returned an empty response for brand '{brand}' -- "
+            "nothing to extract a domain from. This can happen with some models "
+            "on a bare 'give me just a URL' prompt; try a different GROQ_MODEL "
+            "or brand."
+        )
 
     cleaned_url = raw_text.splitlines()[0].strip("<>'\"` ")
+    if not cleaned_url:
+        raise RuntimeError(
+            f"Groq ('{model}') response for brand '{brand}' had no usable content "
+            f"after cleanup (raw response: {raw_text!r})."
+        )
     if "://" in cleaned_url:
         domain_candidate = cleaned_url.split("://")[1].split("/")[0]
     else:
         domain_candidate = cleaned_url.split("/")[0]
+
+    # The model sometimes refuses ("I'm sorry, but I can't help...") or
+    # returns a bare scheme with nothing after it ("https://"). That text
+    # isn't empty, so the checks above let it through, but it also isn't a
+    # domain -- scoring it anyway would silently show a refusal sentence in
+    # the results table as if it were real data. Reject anything that
+    # doesn't look like an actual domain (a dot-separated hostname, no
+    # spaces or punctuation-heavy prose) instead.
+    _DOMAIN_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$", re.IGNORECASE)
+    if not domain_candidate or not _DOMAIN_RE.match(domain_candidate):
+        raise RuntimeError(
+            f"Groq ('{model}') did not return a usable domain for brand "
+            f"'{brand}' -- likely declined to answer (raw response: {raw_text!r})."
+        )
 
     scoring = phantom_squat_score(domain_candidate)
 
