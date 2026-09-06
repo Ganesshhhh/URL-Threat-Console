@@ -1,13 +1,20 @@
+# Native Streamlit theme, kept in sync with the CSS injected in
+# app/streamlit_app.py. Setting these here (rather than relying on CSS
+# overrides alone) makes native widgets that CSS doesn't fully reach --
+# focus rings, slider handles, checkbox/radio accents, form submit
+# buttons -- pick up the same cream / graph-paper / terracotta palette
+# instead of Streamlit's default red.
 [theme]
 base = "light"
-primaryColor = "#6f6254"
-backgroundColor = "#f4efe5"
-secondaryBackgroundColor = "#ebe3d5"
-textColor = "#332e28"
+primaryColor = "#b5722f"
+backgroundColor = "#eae7d9"
+secondaryBackgroundColor = "#f3f1e5"
+textColor = "#2c2a22"
 font = "sans serif"
 
 [server]
-headless = true
-
-[browser]
-gatherUsageStats = false
+# Off by default so the running app doesn't rerun itself just because a
+# file on disk changed (only matters if you're editing code while the app
+# is open) -- unrelated to the live-feed refresh behavior, which is handled
+# by st.fragment in app/streamlit_app.py instead.
+runOnSave = false
