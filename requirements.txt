@@ -3,8 +3,7 @@ scikit-learn
 xgboost>=1.6
 shap
 tldextract
-streamlit
-streamlit-autorefresh
+streamlit>=1.38
 joblib
 certstream
 anthropic
