@@ -17,11 +17,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import streamlit as st
 import pandas as pd
 import shap
-try:
-    from streamlit_autorefresh import st_autorefresh
-except ImportError:
-    def st_autorefresh(interval=3000, key=None):
-        pass
 
 from features import extract_features, FEATURE_NAMES
 from adversarial import generate_adversarial_set, evaluate
@@ -347,7 +342,15 @@ with tab_monitor:
         index=0,
     )
 
-    if mode == "Live Certificate Transparency stream":
+    # Each panel below is an st.fragment: on its own ~4s timer it reruns only
+    # itself, not the whole page. A plain st_autorefresh() reran the ENTIRE
+    # script every few seconds -- tearing down and rebuilding the header,
+    # tabs, and everything else each time -- which is what made the table
+    # flicker in and out and left it "partially visible most of the time".
+    # Fragments update just the feed table in place instead.
+
+    @st.fragment(run_every="4s")
+    def _live_ct_panel():
         if ct_feed_worker.certstream is None:
             st.error(
                 "The `certstream` package is not installed, so the live "
@@ -355,45 +358,45 @@ with tab_monitor:
                 "`pip install certstream` and restart the app, or switch to "
                 "the simulated feed above in the meantime."
             )
+            return
+        start_live_feed()
+        status = read_ct_status()
+        state = status.get("state", "connecting")
+        if state == "connected":
+            st.markdown(
+                '<div class="note-box"><b>🟢 Live</b> — streaming and scoring new certificates.</div>',
+                unsafe_allow_html=True,
+            )
+        elif state == "socket_open":
+            st.markdown(
+                '<div class="note-box"><b>🟡 Connected</b> — socket open, waiting for the first certificate.</div>',
+                unsafe_allow_html=True,
+            )
+        elif state == "error":
+            st.markdown(
+                f'<div class="note-box"><b>🔴 Connection failed</b> — {status.get("error", "unknown error")}. '
+                'The public certstream.calidog.io server has a history of outages; try the simulated feed if this persists.</div>',
+                unsafe_allow_html=True,
+            )
         else:
-            start_live_feed()
-            st_autorefresh(interval=3000, key="ct_feed_refresh")
-            status = read_ct_status()
-            state = status.get("state", "connecting")
-            if state == "connected":
-                st.markdown(
-                    '<div class="note-box"><b>🟢 Live</b> — streaming and scoring new certificates.</div>',
-                    unsafe_allow_html=True,
-                )
-            elif state == "socket_open":
-                st.markdown(
-                    '<div class="note-box"><b>🟡 Connected</b> — socket open, waiting for the first certificate.</div>',
-                    unsafe_allow_html=True,
-                )
-            elif state == "error":
-                st.markdown(
-                    f'<div class="note-box"><b>🔴 Connection failed</b> — {status.get("error", "unknown error")}. '
-                    'The public certstream.calidog.io server has a history of outages; try the simulated feed if this persists.</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    '<div class="note-box"><b>🟡 Connecting</b> — opening the certificate stream socket.</div>',
-                    unsafe_allow_html=True,
-                )
-            st.markdown("")
-            feed_df = read_feed(source="live_ct_log")
-            if feed_df.empty:
-                st.info("No live-flagged domains yet. Simulated-mode rows are hidden here.")
-            else:
-                st.dataframe(
-                    feed_df[["timestamp", "domain", "phishing_probability", "brand_edit_distance", "suspicious_tld", "source"]],
-                    use_container_width=True,
-                    hide_index=True,
-                )
-    else:
+            st.markdown(
+                '<div class="note-box"><b>🟡 Connecting</b> — opening the certificate stream socket.</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("")
+        feed_df = read_feed(source="live_ct_log")
+        if feed_df.empty:
+            st.info("No live-flagged domains yet. Simulated-mode rows are hidden here.")
+        else:
+            st.dataframe(
+                feed_df[["timestamp", "domain", "phishing_probability", "brand_edit_distance", "suspicious_tld", "source"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    @st.fragment(run_every="4s")
+    def _simulated_feed_panel():
         start_simulated_feed()
-        st_autorefresh(interval=3000, key="feed_refresh")
         feed_df = read_feed(source="simulated")
         if feed_df.empty:
             st.write("Waiting for the first flagged domain...")
@@ -404,13 +407,18 @@ with tab_monitor:
                 hide_index=True,
             )
 
+    if mode == "Live Certificate Transparency stream":
+        _live_ct_panel()
+    else:
+        _simulated_feed_panel()
+
 # ---------------------------------------------------------------------------
 # Tab 4: Phantom squatting
 # ---------------------------------------------------------------------------
 with tab_phantom:
     st.markdown("Catches domains an LLM hallucinates when asked for a brand's URL.")
     
-    GROQ_MODEL = "llama-3.3-70b-versatile"
+    GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
     groq_api_key = os.environ.get("GROQ_API_KEY")
 
     # Small fixed default to keep API usage low -- override with a
