@@ -1,0 +1,16 @@
+pandas
+scikit-learn
+xgboost>=1.6
+shap
+tldextract
+streamlit
+streamlit-autorefresh
+joblib
+certstream
+anthropic
+ucimlrepo
+tranco
+groq
+# Note: pyopdb is vendored locally at data/pyopdb/pyopdb.py and imported
+# from there directly (see data/load_openphish_tranco.py) -- it is NOT
+# pip-installable, since the upstream repo has no setup.py/pyproject.toml.

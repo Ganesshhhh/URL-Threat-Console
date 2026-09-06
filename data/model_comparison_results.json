@@ -1,0 +1,57 @@
+{
+  "summary": [
+    {
+      "model": "xgboost",
+      "held_out_f1": 0.96,
+      "held_out_auc": 0.9946,
+      "red_team_catch_rate": 0.7917
+    },
+    {
+      "model": "random_forest",
+      "held_out_f1": 0.944,
+      "held_out_auc": 0.9866,
+      "red_team_catch_rate": 0.5694
+    },
+    {
+      "model": "logistic_regression",
+      "held_out_f1": 0.958,
+      "held_out_auc": 0.986,
+      "red_team_catch_rate": 0.1306
+    }
+  ],
+  "chosen_model": "xgboost",
+  "chosen_model_per_technique": {
+    "clean_phishing": 0.8333,
+    "combosquat_clean_tld": 0.8833,
+    "homograph": 0.25,
+    "shortener": 1.0,
+    "subdomain_smuggling": 1.0,
+    "typosquat": 0.7833
+  },
+  "all_per_technique": {
+    "logistic_regression": {
+      "clean_phishing": 0.0,
+      "combosquat_clean_tld": 0.0,
+      "homograph": 0.0,
+      "shortener": 0.0,
+      "subdomain_smuggling": 0.7833,
+      "typosquat": 0.0
+    },
+    "random_forest": {
+      "clean_phishing": 0.3167,
+      "combosquat_clean_tld": 0.8167,
+      "homograph": 0.0,
+      "shortener": 1.0,
+      "subdomain_smuggling": 1.0,
+      "typosquat": 0.2833
+    },
+    "xgboost": {
+      "clean_phishing": 0.8333,
+      "combosquat_clean_tld": 0.8833,
+      "homograph": 0.25,
+      "shortener": 1.0,
+      "subdomain_smuggling": 1.0,
+      "typosquat": 0.7833
+    }
+  }
+}
