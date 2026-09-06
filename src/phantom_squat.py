@@ -108,10 +108,16 @@ def query_llm_live(brand: str, model: str = "claude-sonnet-4-6"):
     return {"brand": brand, "prompted_model": model, "raw_response": text.strip()}
 
 
-def query_groq_live(brand: str, api_key: str = None, model: str = "llama-3.3-70b-versatile"):
+def query_groq_live(brand: str, api_key: str = None, model: str = "openai/gpt-oss-120b"):
     """
     Live query harness using Groq API (GROQ_API_KEY environment variable or passed key).
-    Queries Groq models (e.g. llama-3.3-70b-versatile, llama3-8b-8192) to detect AI hallucinated domains.
+    Queries Groq-hosted models (e.g. openai/gpt-oss-120b, openai/gpt-oss-20b) to
+    detect AI-hallucinated domains. Groq periodically deprecates/decommissions
+    older model IDs (llama-3.3-70b-versatile and llama-3.1-8b-instant were
+    retired in August 2026) -- if a model name in this file starts 404ing,
+    check https://console.groq.com/docs/deprecations for the current
+    recommended replacement, or just override via the model= argument /
+    GROQ_MODEL env var (see app/streamlit_app.py) without touching this file.
     """
     api_key = api_key or os.environ.get("GROQ_API_KEY")
     if not api_key:
